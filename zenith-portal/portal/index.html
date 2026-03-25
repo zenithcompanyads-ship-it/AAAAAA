@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZENITH — Portal do Cliente</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../shared/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#9FE870;--dark:#090D06;--white:#fff;
+  --card:rgba(255,255,255,.04);--border:rgba(255,255,255,.08);
+  --border-g:rgba(159,232,112,.15);--muted:rgba(255,255,255,.4);
+  --sub:rgba(255,255,255,.65);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--dark);color:var(--white);font-family:'DM Sans',sans-serif;min-height:100vh;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:rgba(159,232,112,.25);border-radius:4px;}
+
+/* ─ LOGIN ─ */
+#login-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:999;background:var(--dark);}
+.login-glow{position:absolute;inset:0;background:radial-gradient(ellipse 55% 45% at 50% 50%,rgba(159,232,112,.07),transparent);pointer-events:none;}
+.login-box{position:relative;width:420px;padding:48px 44px;background:rgba(255,255,255,.03);border:1px solid var(--border-g);border-radius:20px;backdrop-filter:blur(20px);animation:fadeUp .6s ease;}
+.login-logo{text-align:center;margin-bottom:36px;}
+.login-logo .brand{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:6px;color:var(--primary);display:block;margin-bottom:6px;}
+.login-logo h1{font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:300;letter-spacing:2px;}
+.login-logo p{font-size:13px;color:var(--muted);margin-top:6px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.field input{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:10px;padding:14px 16px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color .2s;}
+.field input:focus{border-color:var(--primary);}
+.err-msg{color:#ff6b6b;font-size:13px;text-align:center;margin-top:-8px;margin-bottom:12px;display:none;}
+.login-btn{width:100%;background:var(--primary);color:var(--dark);border:none;border-radius:10px;padding:15px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:opacity .2s;}
+.login-btn:hover{opacity:.85;}
+.login-footer{text-align:center;margin-top:24px;font-size:11px;color:var(--muted);letter-spacing:1px;}
+
+/* ─ PORTAL ─ */
+#portal{display:none;min-height:100vh;}
+
+/* SIDEBAR */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:rgba(255,255,255,.025);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:100;backdrop-filter:blur(10px);}
+.sidebar-logo{padding:28px 24px 24px;border-bottom:1px solid var(--border);}
+.sidebar-logo .brand-tag{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:5px;color:var(--primary);display:block;margin-bottom:4px;}
+.sidebar-logo h2{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;letter-spacing:2px;}
+.client-info{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+.c-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#5fa83a);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--dark);font-weight:600;flex-shrink:0;}
+.c-name{font-size:13px;font-weight:500;line-height:1.3;}
+.c-handle{font-size:11px;color:var(--muted);}
+.sidebar-nav{padding:16px 0;flex:1;}
+.nav-label{font-size:9px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;padding:8px 24px 4px;}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 24px;cursor:pointer;font-size:13px;color:var(--sub);transition:all .2s;border-left:2px solid transparent;user-select:none;}
+.nav-item:hover{color:var(--white);background:rgba(255,255,255,.03);}
+.nav-item.active{color:var(--primary);border-left-color:var(--primary);background:rgba(159,232,112,.06);font-weight:500;}
+.nav-item .ico{font-size:15px;}
+.sidebar-bottom{padding:16px 24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);}
+.period-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(159,232,112,.1);border:1px solid rgba(159,232,112,.25);border-radius:20px;padding:4px 10px;font-size:10px;color:var(--primary);margin-top:6px;}
+.logout-link{display:block;margin-top:10px;font-size:11px;color:var(--muted);cursor:pointer;transition:color .2s;}
+.logout-link:hover{color:#ff6b6b;}
+
+/* MAIN */
+.main-content{margin-left:240px;min-height:100vh;}
+.topbar{padding:20px 36px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(9,13,6,.85);backdrop-filter:blur(20px);z-index:50;}
+.topbar-title h3{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;letter-spacing:1px;}
+.topbar-title p{font-size:12px;color:var(--muted);margin-top:2px;}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.tab-switcher{display:flex;background:rgba(255,255,255,.05);border-radius:10px;padding:4px;gap:2px;}
+.tab-btn{padding:8px 20px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .2s;font-family:'DM Sans',sans-serif;letter-spacing:.5px;}
+.tab-btn.active{background:var(--primary);color:var(--dark);}
+.status-live{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--primary);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--primary);animation:pulse 2s infinite;}
+
+/* PANELS */
+.panel{display:none;padding:32px 36px;}
+.panel.active{display:block;animation:fadeIn .3s ease;}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s;}
+.kpi-card:hover{border-color:rgba(159,232,112,.3);transform:translateY(-2px);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--primary),transparent);opacity:0;transition:opacity .2s;}
+.kpi-card:hover::before{opacity:1;}
+.kpi-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.kpi-value{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:300;line-height:1;letter-spacing:-1px;}
+.kpi-value.green{color:var(--primary);}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:6px;}
+.kpi-icon{position:absolute;right:20px;top:20px;font-size:22px;opacity:.25;}
+
+/* SECTION TITLE */
+.sec-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;letter-spacing:1px;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* GRID */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px;}
+.three-col{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:28px;}
+.full{margin-bottom:28px;}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;position:relative;overflow:hidden;}
+.card-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+
+/* TABLE */
+.camp-table{width:100%;border-collapse:collapse;}
+.camp-table th{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 0 12px;border-bottom:1px solid var(--border);font-weight:400;}
+.camp-table td{padding:14px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;}
+.camp-table tr:last-child td{border-bottom:none;}
+.camp-name-cell{font-weight:500;font-size:13px;line-height:1.3;max-width:200px;}
+.camp-name-cell span{display:block;font-size:10px;color:var(--muted);font-weight:300;margin-top:2px;}
+.badge-active{display:inline-flex;align-items:center;gap:5px;background:rgba(159,232,112,.12);border:1px solid rgba(159,232,112,.3);color:var(--primary);font-size:10px;letter-spacing:1px;padding:3px 10px;border-radius:20px;font-weight:500;}
+.badge-active::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--primary);animation:pulse 2s infinite;}
+.num{font-family:'Space Mono',monospace;font-size:13px;}
+.num-g{color:var(--primary);}
+
+/* FUNNEL */
+.funnel-step{display:flex;align-items:center;gap:16px;margin-bottom:8px;}
+.funnel-bar-wrap{flex:1;height:42px;position:relative;display:flex;align-items:center;}
+.funnel-bar-bg{position:absolute;inset:0;background:rgba(255,255,255,.04);border-radius:8px;border:1px solid var(--border);}
+.funnel-bar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:8px;}
+.funnel-label{position:relative;padding:0 16px;display:flex;align-items:center;justify-content:space-between;width:100%;}
+.funnel-name{font-size:12px;font-weight:500;}
+.funnel-pct{width:48px;text-align:right;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);}
+
+/* BARS */
+.bar-chart{display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:8px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.bar-fill{width:100%;border-radius:4px 4px 0 0;min-height:4px;}
+.bar-lbl{font-size:9px;color:var(--muted);letter-spacing:1px;text-align:center;}
+.bar-val{font-size:10px;font-family:'Space Mono',monospace;color:var(--sub);}
+
+/* DONUT */
+.donut-wrap{display:flex;align-items:center;gap:24px;padding:8px 0;}
+.donut-legend{flex:1;}
+.legend-item{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:12px;}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.legend-pct{margin-left:auto;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);}
+
+/* PROGRESS BAR */
+.prog-item{margin-bottom:14px;}
+.prog-header{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;}
+.prog-bar-bg{height:6px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden;}
+.prog-bar-fill{height:100%;border-radius:6px;}
+
+/* INSIGHT */
+.insight-list{display:flex;flex-direction:column;gap:10px;}
+.insight-item{display:flex;align-items:flex-start;gap:12px;padding:14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid var(--border);}
+.insight-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.insight-text{font-size:12px;color:var(--sub);line-height:1.5;}
+.insight-text strong{color:var(--white);font-weight:500;}
+
+/* METRIC INLINE */
+.metric-inline{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);}
+.metric-inline:last-child{border-bottom:none;}
+.metric-inline-val{font-family:'Space Mono',monospace;font-size:15px;margin-left:auto;}
+.metric-inline-label{font-size:12px;color:var(--sub);}
+
+/* EMPTY / LOADING */
+.empty-state{text-align:center;padding:60px 24px;color:var(--muted);}
+.empty-state .e-icon{font-size:40px;margin-bottom:12px;}
+.loading-spinner{display:inline-block;width:20px;height:20px;border:2px solid rgba(159,232,112,.2);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="login-screen">
+  <div class="login-glow"></div>
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="brand">Digital Marketing</span>
+      <h1>ZENITH</h1>
+      <p>Portal de Resultados — Acesso Restrito</p>
+    </div>
+    <div class="field"><label>Login</label><input type="text" id="inp-user" placeholder="seu usuário" autocomplete="off"></div>
+    <div class="field"><label>Senha</label><input type="password" id="inp-pass" placeholder="••••••••"></div>
+    <p class="err-msg" id="login-err">Credenciais inválidas. Tente novamente.</p>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Acessar Portal</button>
+    <div class="login-footer">ZENITH Company · Relatório Confidencial</div>
+  </div>
+</div>
+
+<!-- ── PORTAL ── -->
+<div id="portal">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="brand-tag">Digital Marketing</span>
+      <h2>ZENITH</h2>
+    </div>
+    <div class="client-info">
+      <div class="c-avatar" id="s-avatar">?</div>
+      <div>
+        <div class="c-name" id="s-name">—</div>
+        <div class="c-handle" id="s-handle">—</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-label">Visão Geral</div>
+      <div class="nav-item active" onclick="showPanel('mes',this)"><span class="ico">📅</span> Resultado do Mês</div>
+      <div class="nav-item" onclick="showPanel('semana',this)"><span class="ico">🗓</span> Últimos 7 Dias</div>
+      <div class="nav-label" style="margin-top:8px;">Campanhas</div>
+      <div class="nav-item" onclick="showPanel('campanhas',this)"><span class="ico">🚀</span> Campanhas Ativas</div>
+      <div class="nav-item" onclick="showPanel('funil',this)"><span class="ico">🎯</span> Funil de Resultados</div>
+      <div class="nav-item" onclick="showPanel('investimento',this)"><span class="ico">💰</span> Investimento</div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div id="s-period">Carregando...</div>
+      <div class="period-badge" id="s-campcount">● — campanhas</div>
+      <span class="logout-link" onclick="doLogout()">↩ Sair</span>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <div class="topbar-title">
+        <h3 id="panel-title">Resultado do Mês</h3>
+        <p id="panel-subtitle">Carregando...</p>
+      </div>
+      <div class="topbar-right">
+        <div class="tab-switcher">
+          <button class="tab-btn active" onclick="tabSwitch(this,'mes')">Mês</button>
+          <button class="tab-btn" onclick="tabSwitch(this,'semana')">7 Dias</button>
+        </div>
+        <div class="status-live"><div class="dot"></div> AO VIVO</div>
+      </div>
+    </div>
+
+    <!-- ── MÊS ── -->
+    <div class="panel active" id="panel-mes">
+      <div class="kpi-grid" id="kpi-mes"></div>
+      <div class="sec-title">Desempenho por Objetivo</div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Resultados por Campanha</div>
+          <div class="bar-chart" id="bar-mes"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Distribuição de Resultados</div>
+          <div id="donut-mes"></div>
+        </div>
+      </div>
+      <div class="sec-title">Resultado por Campanha — Mês</div>
+      <div class="card full"><table class="camp-table" id="table-mes"><thead><tr><th>Campanha</th><th>Status</th><th>Resultados</th><th>Alcance</th><th>Impressões</th><th>CPR</th><th>Investido</th></tr></thead><tbody></tbody></table></div>
+      <div class="sec-title">Destaques do Mês</div>
+      <div class="insight-list" id="insights-mes"></div>
+    </div>
+
+    <!-- ── SEMANA ── -->
+    <div class="panel" id="panel-semana">
+      <div class="kpi-grid" id="kpi-sem"></div>
+      <div class="sec-title">Resultado por Campanha — 7 Dias</div>
+      <div class="card full"><table class="camp-table" id="table-sem"><thead><tr><th>Campanha</th><th>Status</th><th>Resultados</th><th>Alcance</th><th>Impressões</th><th>CPR</th><th>Investido</th></tr></thead><tbody></tbody></table></div>
+      <div class="sec-title">Comparativo Semana vs Mês</div>
+      <div class="two-col">
+        <div class="card"><div class="card-title">% da semana sobre o mês</div><div id="prog-semana" style="margin-top:8px;"></div></div>
+        <div class="card"><div class="card-title">Eficiência da semana</div><div class="insight-list" id="insights-sem"></div></div>
+      </div>
+    </div>
+
+    <!-- ── CAMPANHAS ── -->
+    <div class="panel" id="panel-campanhas">
+      <div class="sec-title">Campanhas em Veiculação Agora</div>
+      <div id="camp-cards" style="display:flex;flex-direction:column;gap:16px;"></div>
+    </div>
+
+    <!-- ── FUNIL ── -->
+    <div class="panel" id="panel-funil">
+      <div class="sec-title">Funil de Resultados</div>
+      <div class="three-col">
+        <div class="card">
+          <div class="card-title">Jornada do Lead</div>
+          <div id="funil-bars"></div>
+          <div id="funil-rates" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="card">
+            <div class="card-title">CPR por Campanha</div>
+            <div id="cpr-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Total de Conversas Geradas</div>
+            <div id="funil-msgs" style="text-align:center;padding:16px 0;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── INVESTIMENTO ── -->
+    <div class="panel" id="panel-investimento">
+      <div class="kpi-grid" id="kpi-inv"></div>
+      <div class="sec-title">Distribuição do Investimento</div>
+      <div class="two-col">
+        <div class="card"><div class="card-title">Por campanha — Total no mês</div><div id="inv-bars" style="margin-top:8px;"></div></div>
+        <div class="card"><div class="card-title">Retorno sobre o investimento</div><div class="insight-list" id="inv-insights"></div></div>
+      </div>
+      <div class="sec-title">Investimento — Últimos 7 dias</div>
+      <div class="card">
+        <div id="inv-sem-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;text-align:center;"></div>
+        <div id="inv-sem-total" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:center;align-items:center;gap:8px;"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────────
+let CLIENT = null
+let DATA = { mes: [], semana: [] }
+
+const PANEL_META = {
+  mes:          { title: 'Resultado do Mês',     sub: () => periodLabel('mes') },
+  semana:       { title: 'Últimos 7 Dias',        sub: () => periodLabel('semana') },
+  campanhas:    { title: 'Campanhas Ativas',      sub: () => DATA.mes.length + ' campanhas em veiculação' },
+  funil:        { title: 'Funil de Resultados',   sub: () => 'Jornada completa do lead' },
+  investimento: { title: 'Investimento',          sub: () => 'Distribuição e eficiência do budget' },
+}
+
+function periodLabel(p) {
+  const rows = DATA[p]
+  if (!rows.length) return '—'
+  return `${fmtDate(rows[0].start_date)} → ${fmtDate(rows[0].end_date)}`
+}
+
+// ── LOGIN ────────────────────────────────────────────────────
+async function doLogin() {
+  const u = document.getElementById('inp-user').value.trim()
+  const p = document.getElementById('inp-pass').value.trim()
+  const btn = document.getElementById('login-btn')
+  const err = document.getElementById('login-err')
+
+  if (!u || !p) { err.style.display = 'block'; return }
+
+  btn.innerHTML = '<span class="loading-spinner"></span>'
+  btn.disabled = true
+
+  CLIENT = await getClientByLogin(u, p)
+
+  if (!CLIENT) {
+    err.style.display = 'block'
+    setTimeout(() => err.style.display = 'none', 3000)
+    btn.innerHTML = 'Acessar Portal'
+    btn.disabled = false
+    return
+  }
+
+  // Load campaigns
+  const allCamps = await getCampaignsByClient(CLIENT.id)
+  DATA.mes    = allCamps.filter(c => c.period === 'mes')
+  DATA.semana = allCamps.filter(c => c.period === 'semana')
+
+  // Fill sidebar
+  document.getElementById('s-avatar').textContent  = CLIENT.avatar_letter || CLIENT.name[0]
+  document.getElementById('s-name').textContent    = CLIENT.name
+  document.getElementById('s-handle').textContent  = CLIENT.instagram || ''
+  document.getElementById('s-period').textContent  = new Date().toLocaleString('pt-BR',{month:'long',year:'numeric'})
+  document.getElementById('s-campcount').textContent = `● ${DATA.mes.length} campanhas ativas`
+
+  document.getElementById('login-screen').style.display = 'none'
+  document.getElementById('portal').style.display = 'block'
+
+  renderAll()
+}
+
+function doLogout() { location.reload() }
+
+document.getElementById('inp-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin() })
+
+// ── NAVIGATION ───────────────────────────────────────────────
+function showPanel(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+  document.getElementById('panel-' + id).classList.add('active')
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
+  if (el) el.classList.add('active')
+  const m = PANEL_META[id]
+  document.getElementById('panel-title').textContent = m.title
+  document.getElementById('panel-subtitle').textContent = m.sub()
+  const tabs = document.querySelectorAll('.tab-btn')
+  tabs[0].classList.toggle('active', id === 'mes')
+  tabs[1].classList.toggle('active', id === 'semana')
+}
+
+function tabSwitch(btn, id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  const navItem = [...document.querySelectorAll('.nav-item')].find(n => {
+    return (id === 'mes' && n.textContent.includes('Mês')) ||
+           (id === 'semana' && n.textContent.includes('7 Dias'))
+  })
+  showPanel(id, navItem)
+}
+
+// ── RENDER ALL ───────────────────────────────────────────────
+function renderAll() {
+  renderMes()
+  renderSemana()
+  renderCampanhas()
+  renderFunil()
+  renderInvestimento()
+  // Set initial subtitle
+  document.getElementById('panel-subtitle').textContent = periodLabel('mes')
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function sum(arr, key) { return arr.reduce((a,b) => a + (b[key]||0), 0) }
+function campLabel(name) {
+  const n = name.toUpperCase()
+  if (n.includes('TRAF') || n.includes('PERFIL')) return 'Tráfego Perfil'
+  if (n.includes('REMARK')) return 'Remarketing'
+  if (n.includes('PURSH')) return 'Conv. PURSH'
+  if (n.includes('ENGJ') || n.includes('CONV')) return 'Conv. ENGJ'
+  return name.split('|').pop().trim()
+}
+
+// ── MÊS ─────────────────────────────────────────────────────
+function renderMes() {
+  const d = DATA.mes
+  if (!d.length) { document.getElementById('kpi-mes').innerHTML = '<div class="empty-state"><div class="e-icon">📭</div><p>Nenhum dado de mês carregado.<br>Solicite à equipe ZENITH.</p></div>'; return }
+
+  const totResults = sum(d,'results')
+  const totReach   = sum(d,'reach')
+  const totImpr    = sum(d,'impressions')
+  const totSpent   = sum(d,'amount_spent')
+
+  // KPIs
+  document.getElementById('kpi-mes').innerHTML = `
+    ${kpiCard('Total de Resultados', fmt(totResults), 'Conversões + Visitas + Msgs','✨','green')}
+    ${kpiCard('Alcance Total', fmt(totReach), 'Pessoas únicas impactadas','👁','')}
+    ${kpiCard('Impressões', fmt(totImpr), 'Exibições totais','📢','')}
+    ${kpiCard('Investimento Total', fmtBRL(totSpent), 'Valor gasto no período','💳','green')}
+  `
+
+  // Table
+  const tbody = document.querySelector('#table-mes tbody')
+  tbody.innerHTML = ''
+  d.forEach(c => {
+    const tr = document.createElement('tr')
+    tr.innerHTML = `
+      <td><div class="camp-name-cell">${campLabel(c.campaign_name)}<span>${typeLabel(c.result_type)}</span></div></td>
+      <td><span class="badge-active">Ativo</span></td>
+      <td><span class="num num-g">${fmt(c.results)}</span></td>
+      <td><span class="num">${fmt(c.reach)}</span></td>
+      <td><span class="num">${fmt(c.impressions)}</span></td>
+      <td><span class="num">${fmtBRL(c.cost_per_result)}</span></td>
+      <td><span class="num">${fmtBRL(c.amount_spent)}</span></td>
+    `
+    tbody.appendChild(tr)
+  })
+
+  // Bar chart
+  const maxR = Math.max(...d.map(x => x.results))
+  const colors = ['#9FE870','#5fa83a','#3a7d22','#265714','#1a4010']
+  const barHtml = d.map((c,i) => `
+    <div class="bar-col">
+      <span class="bar-val">${fmt(c.results)}</span>
+      <div class="bar-fill" style="height:${maxR>0?(c.results/maxR*100):4}%;background:${colors[i%colors.length]};"></div>
+      <span class="bar-lbl">${campLabel(c.campaign_name).split(' ').slice(-1)[0]}</span>
+    </div>
+  `).join('')
+  document.getElementById('bar-mes').innerHTML = barHtml
+
+  // Donut (traffic vs msgs)
+  const trafficCamps = d.filter(c => c.result_type && c.result_type.includes('profile_visit'))
+  const msgCamps     = d.filter(c => c.result_type && c.result_type.includes('messaging'))
+  const tRes = sum(trafficCamps,'results')
+  const mRes = sum(msgCamps,'results')
+  const total = tRes + mRes || 1
+  const tPct = ((tRes/total)*100).toFixed(1)
+  const mPct = ((mRes/total)*100).toFixed(1)
+  const circ = 2 * Math.PI * 40 // ~251.3
+  const tDash = ((tRes/total)*circ).toFixed(1)
+  const mDash = ((mRes/total)*circ).toFixed(1)
+  document.getElementById('donut-mes').innerHTML = `
+    <div class="donut-wrap">
+      <svg width="110" height="110" viewBox="0 0 110 110">
+        <circle cx="55" cy="55" r="40" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="18"/>
+        <circle cx="55" cy="55" r="40" fill="none" stroke="#9FE870" stroke-width="18"
+          stroke-dasharray="${tDash} ${circ}" stroke-dashoffset="62.8" transform="rotate(-90 55 55)"/>
+        <circle cx="55" cy="55" r="40" fill="none" stroke="#3a7d22" stroke-width="18"
+          stroke-dasharray="${mDash} ${circ}" stroke-dashoffset="${-(circ-tDash-62.8)}" transform="rotate(-90 55 55)"/>
+        <text x="55" y="53" text-anchor="middle" fill="white" font-size="13" font-family="Space Mono" dominant-baseline="middle">${fmt(totResults)}</text>
+        <text x="55" y="67" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="8" font-family="DM Sans" dominant-baseline="middle">resultados</text>
+      </svg>
+      <div class="donut-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#9FE870"></div><span>Visitas ao Perfil</span><span class="legend-pct">${tPct}%</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3a7d22"></div><span>Msgs Iniciadas</span><span class="legend-pct">${mPct}%</span></div>
+      </div>
+    </div>
+  `
+
+  // Insights
+  const best = [...d].sort((a,b) => b.results - a.results)[0]
+  const cheapest = [...d].filter(c=>c.cost_per_result>0).sort((a,b) => a.cost_per_result - b.cost_per_result)[0]
+  document.getElementById('insights-mes').innerHTML = `
+    <div class="insight-item"><div class="insight-icon">🏆</div><div class="insight-text"><strong>${campLabel(best.campaign_name)}</strong> foi a estrela do mês — <strong>${fmt(best.results)} resultados</strong> com custo por resultado de <strong>${fmtBRL(best.cost_per_result)}</strong>.</div></div>
+    <div class="insight-item"><div class="insight-icon">💬</div><div class="insight-text">Campanhas de conversão geraram <strong>${fmt(mRes)} mensagens iniciadas</strong> — pessoas realmente interessadas em agendar ou tirar dúvidas.</div></div>
+    <div class="insight-item"><div class="insight-icon">💡</div><div class="insight-text">Menor custo por resultado: <strong>${campLabel(cheapest.campaign_name)}</strong> com apenas <strong>${fmtBRL(cheapest.cost_per_result)}</strong> por resultado.</div></div>
+    <div class="insight-item"><div class="insight-icon">📊</div><div class="insight-text">Total de <strong>${fmt(totImpr)} impressões</strong> e <strong>${fmt(totReach)} pessoas alcançadas</strong> — sua marca sendo vista com consistência.</div></div>
+  `
+}
+
+// ── SEMANA ───────────────────────────────────────────────────
+function renderSemana() {
+  const s = DATA.semana
+  const m = DATA.mes
+  if (!s.length) { return }
+
+  const sRes   = sum(s,'results')
+  const sReach = sum(s,'reach')
+  const sImpr  = sum(s,'impressions')
+  const sSpent = sum(s,'amount_spent')
+  const mRes   = sum(m,'results') || 1
+  const mReach = sum(m,'reach') || 1
+  const mImpr  = sum(m,'impressions') || 1
+  const mSpent = sum(m,'amount_spent') || 1
+
+  document.getElementById('kpi-sem').innerHTML = `
+    ${kpiCard('Resultados (7 dias)', fmt(sRes), periodLabel('semana'),'⚡','green')}
+    ${kpiCard('Alcance', fmt(sReach), 'Pessoas únicas','👁','')}
+    ${kpiCard('Impressões', fmt(sImpr), 'Exibições no período','📢','')}
+    ${kpiCard('Investido (semana)', fmtBRL(sSpent), 'Valor gasto nos 7 dias','💳','green')}
+  `
+
+  // Table
+  const tbody = document.querySelector('#table-sem tbody')
+  tbody.innerHTML = ''
+  s.forEach(c => {
+    const tr = document.createElement('tr')
+    tr.innerHTML = `
+      <td><div class="camp-name-cell">${campLabel(c.campaign_name)}<span>${typeLabel(c.result_type)}</span></div></td>
+      <td><span class="badge-active">Ativo</span></td>
+      <td><span class="num num-g">${fmt(c.results)}</span></td>
+      <td><span class="num">${fmt(c.reach)}</span></td>
+      <td><span class="num">${fmt(c.impressions)}</span></td>
+      <td><span class="num">${fmtBRL(c.cost_per_result)}</span></td>
+      <td><span class="num">${fmtBRL(c.amount_spent)}</span></td>
+    `
+    tbody.appendChild(tr)
+  })
+
+  // Progress bars vs mes
+  const metrics = [
+    { label: 'Resultados',   sv: sRes,   mv: mRes },
+    { label: 'Alcance',      sv: sReach, mv: mReach },
+    { label: 'Impressões',   sv: sImpr,  mv: mImpr },
+    { label: 'Investimento', sv: sSpent, mv: mSpent },
+  ]
+  document.getElementById('prog-semana').innerHTML = metrics.map(m => {
+    const pct = Math.min(100, (m.sv/m.mv*100)).toFixed(1)
+    return `<div class="prog-item">
+      <div class="prog-header"><span>${m.label}</span><span class="num" style="color:var(--primary)">${pct}%</span></div>
+      <div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%;background:var(--primary);"></div></div>
+    </div>`
+  }).join('')
+
+  // Semana insights
+  const bestSem = [...s].sort((a,b) => b.results - a.results)[0]
+  const cheapSem = [...s].filter(c=>c.cost_per_result>0).sort((a,b) => a.cost_per_result - b.cost_per_result)[0]
+  document.getElementById('insights-sem').innerHTML = `
+    <div class="insight-item"><div class="insight-icon">⚡</div><div class="insight-text"><strong>${campLabel(bestSem.campaign_name)}</strong> liderou a semana com <strong>${fmt(bestSem.results)} resultados</strong>.</div></div>
+    <div class="insight-item"><div class="insight-icon">💰</div><div class="insight-text">Menor CPR da semana: <strong>${campLabel(cheapSem.campaign_name)}</strong> em <strong>${fmtBRL(cheapSem.cost_per_result)}</strong>.</div></div>
+    <div class="insight-item"><div class="insight-icon">📈</div><div class="insight-text">A semana representou <strong>${(sRes/mRes*100).toFixed(0)}%</strong> dos resultados do mês com <strong>${(sSpent/mSpent*100).toFixed(0)}%</strong> do investimento.</div></div>
+  `
+}
+
+// ── CAMPANHAS ────────────────────────────────────────────────
+function renderCampanhas() {
+  const d = DATA.mes
+  const container = document.getElementById('camp-cards')
+  container.innerHTML = ''
+  if (!d.length) { container.innerHTML = '<div class="empty-state"><div class="e-icon">📭</div><p>Nenhuma campanha carregada.</p></div>'; return }
+
+  d.forEach(c => {
+    const div = document.createElement('div')
+    div.className = 'card'
+    div.style.borderColor = 'rgba(159,232,112,.25)'
+    div.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <span class="badge-active">Ativo</span>
+            <span style="font-size:10px;color:var(--muted);letter-spacing:1px;">${c.budget_type ? c.budget_type.includes('Diário') || c.budget_type.includes('iário') ? 'R$ '+c.budget+'/DIA' : 'ORÇAMENTO DO CONJUNTO' : 'META ADS'}</span>
+          </div>
+          <div style="font-size:16px;font-weight:500;margin-bottom:4px;">${campLabel(c.campaign_name)}</div>
+          <div style="font-size:12px;color:var(--muted);">${typeLabel(c.result_type)} · ${periodLabel('mes')}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--primary);">${fmt(c.results)}</div>
+          <div style="font-size:11px;color:var(--muted);">resultados no mês</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:4px;">CPR</div><div class="num">${fmtBRL(c.cost_per_result)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Alcance</div><div class="num">${fmt(c.reach)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Impressões</div><div class="num">${fmt(c.impressions)}</div></div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Investido</div><div class="num num-g">${fmtBRL(c.amount_spent)}</div></div>
+      </div>
+    `
+    container.appendChild(div)
+  })
+}
+
+// ── FUNIL ────────────────────────────────────────────────────
+function renderFunil() {
+  const d = DATA.mes
+  if (!d.length) return
+
+  const totImpr  = sum(d,'impressions')
+  const totReach = sum(d,'reach')
+  const trafCamps = d.filter(c => c.result_type && c.result_type.includes('profile_visit'))
+  const msgCamps  = d.filter(c => c.result_type && c.result_type.includes('messaging'))
+  const totVisits = sum(trafCamps,'results')
+  const totMsgs   = sum(msgCamps,'results')
+
+  const steps = [
+    { label: 'Impressões',  value: totImpr,  pct: 100,  color: 'rgba(159,232,112,.4)', sub: 'exibições' },
+    { label: 'Alcance',     value: totReach, pct: totImpr ? totReach/totImpr*100 : 0, color: 'rgba(159,232,112,.55)', sub: 'pessoas únicas' },
+    { label: 'Visitas Perfil', value: totVisits, pct: totReach ? totVisits/totReach*100 : 0, color: 'rgba(159,232,112,.75)', sub: 'cliques perfil' },
+    { label: 'Msgs Iniciadas', value: totMsgs,  pct: totVisits ? totMsgs/totVisits*100 : 0, color: '#9FE870', sub: 'conversas' },
+  ]
+
+  document.getElementById('funil-bars').innerHTML = steps.map(s => `
+    <div class="funnel-step">
+      <div style="width:110px;font-size:12px;color:var(--sub);">${s.label}</div>
+      <div class="funnel-bar-wrap">
+        <div class="funnel-bar-bg"></div>
+        <div class="funnel-bar-fill" style="width:${Math.max(s.pct,0.5)}%;background:${s.color};min-width:${s.value>0?'40px':'0'};"></div>
+        <div class="funnel-label">
+          <span class="funnel-name" style="color:${s.value===totMsgs?'var(--primary)':'rgba(255,255,255,.9)'}">${fmt(s.value)}</span>
+          <span style="font-size:10px;color:var(--muted);">${s.sub}</span>
+        </div>
+      </div>
+      <div class="funnel-pct">${s.pct.toFixed(1)}%</div>
+    </div>
+  `).join('')
+
+  // Rates
+  const r1 = totImpr  ? (totReach/totImpr*100).toFixed(1)  : 0
+  const r2 = totReach ? (totVisits/totReach*100).toFixed(1) : 0
+  const r3 = totVisits? (totMsgs/totVisits*100).toFixed(1)  : 0
+  document.getElementById('funil-rates').innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:1px;">TAXAS DE CONVERSÃO</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${[['Impressões→Alcance',r1],['Alcance→Visita',r2],['Visita→Msg',r3]].map(([l,v])=>`
+      <div style="background:rgba(159,232,112,.08);border:1px solid var(--border-g);border-radius:8px;padding:8px 14px;font-size:11px;">
+        <span style="color:var(--muted);">${l} </span><span class="num num-g">${v}%</span>
+      </div>`).join('')}
+    </div>
+  `
+
+  // CPR list
+  const sortedCPR = [...d].filter(c=>c.cost_per_result>0).sort((a,b)=>a.cost_per_result-b.cost_per_result)
+  const cprColors = ['🟢','🟡','🟠','🔴']
+  document.getElementById('cpr-list').innerHTML = sortedCPR.map((c,i) => `
+    <div class="metric-inline">
+      <span style="font-size:16px;">${cprColors[i]||'⚫'}</span>
+      <span class="metric-inline-label">${campLabel(c.campaign_name)}</span>
+      <span class="metric-inline-val">${fmtBRL(c.cost_per_result)}</span>
+    </div>
+  `).join('')
+
+  document.getElementById('funil-msgs').innerHTML = `
+    <div style="font-family:'Cormorant Garamond',serif;font-size:56px;font-weight:300;color:var(--primary);line-height:1;">${fmt(totMsgs)}</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px;">conversas iniciadas</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;">via Instagram DM no período</div>
+  `
+}
+
+// ── INVESTIMENTO ─────────────────────────────────────────────
+function renderInvestimento() {
+  const m = DATA.mes
+  const s = DATA.semana
+  if (!m.length) return
+
+  const totSpent = sum(m,'amount_spent')
+  const totRes   = sum(m,'results') || 1
+  const days = 25 // approximate
+  const avgDay = totSpent / days
+  const avgCPR = totSpent / totRes
+
+  const dailyBudget = m.reduce((acc,c) => {
+    if (c.budget > 0 && c.budget_type && (c.budget_type.includes('Diário') || c.budget_type.includes('iário'))) acc += c.budget
+    return acc
+  }, 0)
+
+  document.getElementById('kpi-inv').innerHTML = `
+    ${kpiCard('Total Investido — Mês', fmtBRL(totSpent), 'Valor gasto no período','💰','green')}
+    ${kpiCard('Média Diária', fmtBRL(avgDay), 'Por dia de veiculação','📅','')}
+    ${kpiCard('Custo por Resultado', fmtBRL(avgCPR), 'Média geral (todos obj.)','🎯','green')}
+    ${kpiCard('Budget Ativo / Dia', fmtBRL(dailyBudget), 'Orçamento diário ativo','⚙️','')}
+  `
+
+  // Distribution bars
+  const sorted = [...m].sort((a,b) => b.amount_spent - a.amount_spent)
+  const barColors = ['var(--primary)','#5fa83a','#3a7d22','#265714']
+  document.getElementById('inv-bars').innerHTML = sorted.map((c,i) => {
+    const pct = (c.amount_spent/totSpent*100).toFixed(1)
+    return `<div class="prog-item">
+      <div class="prog-header">
+        <span>${campLabel(c.campaign_name)}</span>
+        <span class="num" style="color:${i===0?'var(--primary)':'var(--sub)'}">${fmtBRL(c.amount_spent)} — ${pct}%</span>
+      </div>
+      <div class="prog-bar-bg"><div class="prog-bar-fill" style="width:${pct}%;background:${barColors[i%barColors.length]};"></div></div>
+    </div>`
+  }).join('')
+
+  // Insights
+  const trafCamp = m.find(c => c.result_type && c.result_type.includes('profile_visit'))
+  const visitRatio = trafCamp ? (trafCamp.results / trafCamp.amount_spent).toFixed(1) : '—'
+  const msgCamps = m.filter(c => c.result_type && c.result_type.includes('messaging'))
+  const totMsgSpent = sum(msgCamps,'amount_spent')
+  const totMsgs = sum(msgCamps,'results') || 1
+  const cpmMsg = totMsgSpent / totMsgs
+  const totReach = sum(m,'reach')
+
+  document.getElementById('inv-insights').innerHTML = `
+    <div class="insight-item"><div class="insight-icon">💎</div><div class="insight-text">Para cada <strong>R$ 1,00</strong> investido em tráfego, você recebeu <strong>${visitRatio} visitas</strong> ao perfil — custo extremamente competitivo.</div></div>
+    <div class="insight-item"><div class="insight-icon">💬</div><div class="insight-text">Cada <strong>mensagem iniciada</strong> custou em média <strong>${fmtBRL(cpmMsg)}</strong> — excelente para sua área de atuação.</div></div>
+    <div class="insight-item"><div class="insight-icon">📍</div><div class="insight-text"><strong>${fmt(totReach)} pessoas</strong> foram impactadas pela sua marca por apenas <strong>${fmtBRL(totSpent)}</strong> no mês.</div></div>
+  `
+
+  // 7 dias
+  if (s.length) {
+    const sTot = sum(s,'amount_spent')
+    document.getElementById('inv-sem-grid').innerHTML = s.map(c => `
+      <div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">${campLabel(c.campaign_name).toUpperCase()}</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:var(--primary);">${fmtBRL(c.amount_spent)}</div>
+        <div style="font-size:11px;color:var(--muted);">${fmt(c.results)} resultados</div>
+      </div>
+    `).join('')
+    document.getElementById('inv-sem-total').innerHTML = `
+      <span style="font-size:13px;color:var(--muted);">Total investido nos últimos 7 dias:</span>
+      <span style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--primary);">${fmtBRL(sTot)}</span>
+    `
+  }
+}
+
+// ── COMPONENTS ───────────────────────────────────────────────
+function kpiCard(label, value, sub, icon, green) {
+  return `<div class="kpi-card">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value ${green}">${value}</div>
+    <div class="kpi-sub">${sub}</div>
+    <div class="kpi-icon">${icon}</div>
+  </div>`
+}
+
+function typeLabel(type) {
+  if (!type) return '—'
+  if (type.includes('profile_visit')) return 'Visitas ao perfil do Instagram'
+  if (type.includes('messaging')) return 'Mensagens iniciadas via DM'
+  return type
+}
+</script>
+</body>
+</html>
